@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion'
-import { ArrowRight, Shield, Star, Clock, PhoneCall, CheckCircle2 } from 'lucide-react'
+import { motion, useMotionValue, useSpring, useTransform, useScroll, useAnimationFrame } from 'framer-motion'
+import { ArrowRight, Shield, Star, Clock, PhoneCall, CheckCircle2, FileText, Receipt, Calculator, Building2, ClipboardCheck } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 const primary = '#042938'
 const accent = '#96D4FF'
@@ -56,14 +57,15 @@ function SectionTitle({ kicker, title, subtitle }) {
   )
 }
 
-function GlassCard({ icon: Icon, title, desc, delay = 0 }) {
+function GlassCard({ icon: Icon, title, desc, delay = 0, hover = true }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.7, delay }}
-      className="relative rounded-2xl p-6 backdrop-blur-xl border"
+      whileHover={hover ? { y: -6, scale: 1.01 } : undefined}
+      className="relative rounded-2xl p-6 backdrop-blur-xl border will-change-transform"
       style={{
         background: 'linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
         borderColor: 'rgba(150,212,255,0.25)'
@@ -97,11 +99,113 @@ function Stat({ value, label, delay = 0 }) {
   )
 }
 
-function App() {
+function FloatingOrbs({ mouseX, mouseY }) {
+  // Parallax orbs that follow the cursor delicately
+  const x = useTransform(mouseX, [0, 1], [-15, 15])
+  const y = useTransform(mouseY, [0, 1], [-15, 15])
+  const xSlow = useTransform(mouseX, [0, 1], [20, -20])
+  const ySlow = useTransform(mouseY, [0, 1], [10, -10])
+
   return (
-    <div className="min-h-screen w-full overflow-hidden" style={{ background: `radial-gradient(1200px 800px at 70% -10%, ${accent}15, transparent 60%), radial-gradient(1000px 700px at 0% 100%, ${accent}10, transparent 60%), ${primary}` }}>
+    <div className="pointer-events-none absolute inset-0 -z-[1] overflow-hidden">
+      <motion.div
+        className="absolute w-[36rem] h-[36rem] rounded-full blur-3xl"
+        style={{ background: `${accent}1A`, top: '-6rem', right: '-8rem', translateX: x, translateY: y }}
+      />
+      <motion.div
+        className="absolute w-[28rem] h-[28rem] rounded-full blur-3xl"
+        style={{ background: `${accent}26`, bottom: '-8rem', left: '-10rem', translateX: xSlow, translateY: ySlow }}
+      />
+    </div>
+  )
+}
+
+function ScrollParallaxBackground() {
+  const { scrollY } = useScroll()
+  const y1 = useTransform(scrollY, [0, 800], [0, -80])
+  const y2 = useTransform(scrollY, [0, 800], [0, 120])
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-[2]">
+      <motion.div className="absolute inset-0" style={{ y: y1, background: `radial-gradient(1200px 800px at 70% -10%, ${accent}15, transparent 60%)` }} />
+      <motion.div className="absolute inset-0" style={{ y: y2, background: `radial-gradient(1000px 700px at 0% 100%, ${accent}10, transparent 60%)` }} />
+    </div>
+  )
+}
+
+function HorizontalShowcase() {
+  const items = [
+    { Icon: ClipboardCheck, title: 'Abertura de CNPJ médica', desc: 'Processo guiado de ponta a ponta com prazos e enquadramento corretos.' },
+    { Icon: Receipt, title: 'Notas e impostos', desc: 'Emissão, apuração e guias sempre em dia, com relatórios claros.' },
+    { Icon: Calculator, title: 'Planejamento tributário', desc: 'Estratégias para reduzir carga tributária dentro da lei.' },
+    { Icon: FileText, title: 'Relatórios inteligentes', desc: 'Visão executiva mensal para decisões rápidas e seguras.' },
+    { Icon: Building2, title: 'Clínicas e grupos', desc: 'Estruturação contábil para clínicas, sociedades e multi-CNPJs.' },
+  ]
+
+  return (
+    <section aria-label="Vitrine horizontal" className="relative py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <SectionTitle
+          kicker="Experiência fluida"
+          title="Role horizontalmente para explorar"
+          subtitle="Conteúdo pensado para navegação moderna: suave no mouse e na rolagem."
+        />
+      </div>
+
+      <div className="mt-10 overflow-x-auto overflow-y-hidden">
+        <div className="px-6 flex gap-6 w-max snap-x snap-mandatory">
+          {items.map((item, i) => (
+            <motion.div
+              key={i}
+              className="snap-start shrink-0 w-[320px]"
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.05 }}
+            >
+              <GlassCard icon={item.Icon} title={item.title} desc={item.desc} delay={0} />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function App() {
+  const mouseX = useMotionValue(0.5)
+  const mouseY = useMotionValue(0.5)
+  const smoothX = useSpring(mouseX, { stiffness: 200, damping: 40, mass: 0.6 })
+  const smoothY = useSpring(mouseY, { stiffness: 200, damping: 40, mass: 0.6 })
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    function handleMove(e) {
+      const rect = rootRef.current?.getBoundingClientRect()
+      const x = (e.clientX - (rect?.left || 0)) / (rect?.width || window.innerWidth)
+      const y = (e.clientY - (rect?.top || 0)) / (rect?.height || window.innerHeight)
+      mouseX.set(Math.min(Math.max(x, 0), 1))
+      mouseY.set(Math.min(Math.max(y, 0), 1))
+    }
+    const el = rootRef.current
+    el?.addEventListener('mousemove', handleMove)
+    return () => el?.removeEventListener('mousemove', handleMove)
+  }, [mouseX, mouseY])
+
+  // Subtle global tilt based on cursor
+  const tiltX = useTransform(smoothY, [0, 1], [6, -6])
+  const tiltY = useTransform(smoothX, [0, 1], [-6, 6])
+
+  // Scroll-based parallax for hero heading
+  const { scrollY } = useScroll()
+  const heroY = useTransform(scrollY, [0, 400], [0, -40])
+  const heroOpacity = useTransform(scrollY, [0, 400], [1, 0.85])
+
+  return (
+    <motion.div ref={rootRef} className="min-h-screen w-full overflow-x-hidden" style={{ background: `${primary}`, rotateX: tiltX, rotateY: tiltY, transformStyle: 'preserve-3d' }}>
+      <ScrollParallaxBackground />
+
       {/* Top nav */}
-      <header className="sticky top-0 z-30">
+      <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/0">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Logo />
           <div className="hidden sm:flex items-center gap-6 text-sm">
@@ -118,53 +222,42 @@ function App() {
 
       {/* Hero */}
       <section className="relative">
-        {/* aurora */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.2 }}
-            className="absolute -top-24 right-0 w-[40rem] h-[40rem] rounded-full blur-3xl"
-            style={{ background: `${accent}25` }}
-          />
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.4, delay: 0.2 }}
-            className="absolute -left-24 bottom-0 w-[36rem] h-[36rem] rounded-full blur-3xl"
-            style={{ background: `${accent}18` }}
-          />
-        </div>
+        <FloatingOrbs mouseX={smoothX} mouseY={smoothY} />
 
         <div className="relative mx-auto max-w-7xl px-6 pt-10 pb-20 sm:pb-28">
-          <motion.div {...fadeInUp} className="flex items-center gap-3 mb-6">
-            <Badge>Escritório de contabilidade para médicos</Badge>
+          <motion.div style={{ y: heroY, opacity: heroOpacity }}>
+            <motion.div {...fadeInUp} className="flex items-center gap-3 mb-6">
+              <Badge>Escritório de contabilidade para médicos</Badge>
+            </motion.div>
+
+            <motion.h1 {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.05 }} className="text-4xl sm:text-6xl font-semibold tracking-tight text-white max-w-4xl">
+              Você cuida de vidas, nós cuidamos de você.
+            </motion.h1>
+            <motion.p {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.1 }} className="mt-6 text-white/75 max-w-2xl text-lg leading-relaxed">
+              A MedUp é especializada em atender profissionais da saúde com comodidade e serviço de altíssima qualidade. Simplificamos sua gestão financeira com discrição, precisão e atendimento premium.
+            </motion.p>
+
+            <motion.div {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.15 }} className="mt-8 flex flex-col sm:flex-row gap-4">
+              <a href="https://wa.me/5599999999999" target="_blank" rel="noreferrer" className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium" style={{ background: accent, color: primary }}>
+                Falar no WhatsApp
+                <ArrowRight size={18} className="transition -mr-1 group-hover:translate-x-0.5" />
+              </a>
+              <a href="#servicos" className="inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium border border-white/20 text-white/90 hover:text-white transition" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                Ver serviços
+              </a>
+            </motion.div>
+
+            {/* Stats */}
+            <div className="mt-14 grid grid-cols-2 sm:grid-cols-3 gap-8">
+              <Stat value="+450" label="médicos atendidos" />
+              <Stat value="< 2h" label="tempo médio de resposta" delay={0.05} />
+              <Stat value="99%" label="satisfação" delay={0.1} />
+            </div>
           </motion.div>
-
-          <motion.h1 {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.05 }} className="text-4xl sm:text-6xl font-semibold tracking-tight text-white max-w-4xl">
-            Você cuida de vidas, nós cuidamos de você.
-          </motion.h1>
-          <motion.p {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.1 }} className="mt-6 text-white/75 max-w-2xl text-lg leading-relaxed">
-            A MedUp é especializada em atender profissionais da saúde com comodidade e serviço de altíssima qualidade. Simplificamos sua gestão financeira com discrição, precisão e atendimento premium.
-          </motion.p>
-
-          <motion.div {...fadeInUp} transition={{ ...fadeInUp.transition, delay: 0.15 }} className="mt-8 flex flex-col sm:flex-row gap-4">
-            <a href="https://wa.me/5599999999999" target="_blank" rel="noreferrer" className="group inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium" style={{ background: accent, color: primary }}>
-              Falar no WhatsApp
-              <ArrowRight size={18} className="transition -mr-1 group-hover:translate-x-0.5" />
-            </a>
-            <a href="#servicos" className="inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium border border-white/20 text-white/90 hover:text-white transition" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              Ver serviços
-            </a>
-          </motion.div>
-
-          {/* Stats */}
-          <div className="mt-14 grid grid-cols-2 sm:grid-cols-3 gap-8">
-            <Stat value="+450" label="médicos atendidos" />
-            <Stat value="< 2h" label="tempo médio de resposta" delay={0.05} />
-            <Stat value="99%" label="satisfação" delay={0.1} />
-          </div>
         </div>
+
+        {/* Subtle downward indicator */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-xs select-none">role para ver mais</div>
       </section>
 
       {/* Services */}
@@ -197,6 +290,9 @@ function App() {
             />
           </div>
 
+          {/* Parallax highlight banner */}
+          <ParallaxHighlight />
+
           <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 rounded-2xl p-8 backdrop-blur-xl border" style={{ background: 'linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))', borderColor: 'rgba(150,212,255,0.25)' }}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -228,6 +324,8 @@ function App() {
           </div>
         </div>
       </section>
+
+      <HorizontalShowcase />
 
       {/* About */}
       <section id="sobre" className="py-16 sm:py-24">
@@ -308,6 +406,24 @@ function App() {
           </div>
         </div>
       </footer>
+    </motion.div>
+  )
+}
+
+function ParallaxHighlight() {
+  const ref = useRef(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], [40, -40])
+  const x = useTransform(scrollYProgress, [0, 1], [-20, 20])
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
+
+  return (
+    <div ref={ref} className="mt-10 relative">
+      <motion.div
+        aria-hidden
+        className="absolute -inset-x-6 -top-6 h-40 rounded-3xl blur-2xl"
+        style={{ background: `${accent}26`, y, x, opacity }}
+      />
     </div>
   )
 }
